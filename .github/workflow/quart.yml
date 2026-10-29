@@ -1,0 +1,15 @@
+name: foo
+on: push
+jobs: 
+  bar: 
+    runs: on ubuntu-latest
+    steps: 
+      -uses: actions/checkout@7v
+      -uses: quarto-dev/quarto-actions/setup@v2
+        with: 
+          tinytex:true
+      -run: pip install ipykernel mbclient matplotlib PyMPDATA
+      -run: quarto render Untitled4.ipynb --to pdf --execute
+      -uses: actions/upload-artifact@v7
+        with: 
+          path:Untitled4.pdf
