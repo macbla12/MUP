@@ -1,0 +1,40 @@
+
+name: Generate PDF
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          tinytex: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ipykernel mbclient matplotlib PyMPDATA
+
+      - name: Render notebook to PDF
+        run: quarto render Untitled0.ipynb --to pdf --execute
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v7
+        with:
+          name: notebook-pdf
+          path: Untitled0.pdf
