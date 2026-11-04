@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install nbformat ipykernel mbclient matplotlib PyMPDATA
+          python -m pip install nbformat nbclient ipykernel mbclient matplotlib PyMPDATA
 
       - name: Render notebook to PDF
         run: quarto render Untitled0.ipynb --to pdf --execute
