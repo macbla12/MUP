@@ -62,7 +62,7 @@ jobs:
             [ -z "$notebook" ] && continue
 
             echo "Rendering: $notebook"
-            quarto render "$notebook" --to pdf --execute --output-dir output
+            quarto render "$notebook" --to pdf --execute
           done < changed_notebooks.txt
 
       - name: Save PDFs to repository
