@@ -1,3 +1,4 @@
+
 name: Generate PDF
 
 on:
@@ -16,8 +17,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -34,45 +33,42 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install nbformat nbclient ipykernel mbclient matplotlib PyMPDATA
 
-      - name: Find changed notebooks
-        id: changed
+      - name: Render all notebooks
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BASE=$(git rev-parse HEAD^ 2>/dev/null || echo "")
-          else
-            BASE="${{ github.event.before }}"
+          shopt -s nullglob
+
+          notebooks=( *.ipynb )
+
+          if [ ${#notebooks[@]} -eq 0 ]; then
+            echo "No notebooks found."
+            exit 0
           fi
 
-          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
-            BASE=$(git rev-list --max-parents=0 HEAD)
-          fi
-
-          git diff --name-only --diff-filter=ACMRT "$BASE" "$GITHUB_SHA" \
-            | grep -E '\.ipynb$' > changed_notebooks.txt || true
-
-          cat changed_notebooks.txt
-
-      - name: Render changed notebooks
-        shell: bash
-        run: |
-          mkdir -p output
-
-          while IFS= read -r notebook; do
-            [ -z "$notebook" ] && continue
-
+          for notebook in "${notebooks[@]}"; do
             echo "Rendering: $notebook"
             quarto render "$notebook" --to pdf --execute
-          done < changed_notebooks.txt
+          done
 
       - name: Save PDFs to repository
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add *.pdf
+          shopt -s nullglob
+          pdfs=( *.pdf )
+
+          if [ ${#pdfs[@]} -eq 0 ]; then
+            echo "No PDFs generated."
+            exit 1
+          fi
+
+          git add -- "${pdfs[@]}"
 
           if ! git diff --cached --quiet; then
             git commit -m "Update generated PDFs"
             git push
+          else
+            echo "PDFs are already up to date."
           fi
