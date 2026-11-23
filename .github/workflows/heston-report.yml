@@ -33,10 +33,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy scipy matplotlib numba pympdata jupyter ipykernel
 
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          version: "latest"
+      - name: Install Quarto
+        run: |
+          QUARTO_VERSION=$(curl -s https://api.github.com/repos/quarto-dev/quarto-cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" -o quarto.deb
+          sudo dpkg -i quarto.deb || sudo apt-get install -f -y
+          rm quarto.deb
+          quarto --version
 
       - name: Install LaTeX
         run: |
