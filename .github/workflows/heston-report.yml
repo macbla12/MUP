@@ -51,6 +51,7 @@ jobs:
             texlive-latex-recommended \
             texlive-latex-extra \
             texlive-fonts-recommended \
+            texlive-lang-polish \
             latexmk
 
       - name: Render PDF
