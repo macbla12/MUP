@@ -1,0 +1,483 @@
+---
+title: "Model Hestona — wycena europejskiej opcji call metodą MPDATA"
+subtitle: "Sprawozdanie z obliczeń numerycznych"
+author: " "
+lang: pl
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    embed-resources: true
+  pdf:
+    documentclass: article
+    toc: true
+    number-sections: true
+    geometry: margin=2.3cm
+    pdf-engine: xelatex
+    include-in-header:
+      text: |
+        \usepackage{amsmath}
+        \usepackage{fontspec}
+        \setmainfont{Latin Modern Roman}
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: false
+jupyter: python3
+---
+
+# Cel i zakres pracy
+
+Celem pracy jest numeryczne wyznaczenie ceny europejskiej opcji kupna (call) w modelu stochastycznej zmienności Hestona. W notebooku wykorzystano metodę MPDATA do części adwekcyjnej równania oraz jawne różnice centralne do aproksymacji dyfuzji, w tym pochodnej mieszanej. Wyniki przedstawiono jako powierzchnie i mapy wartości opcji oraz porównano przypadek graniczny z formułą Blacka–Scholesa.
+
+# Model matematyczny
+
+## Równania modelu Hestona
+
+Model Hestona opisuje cenę instrumentu bazowego \(S_t\) i jego chwilową wariancję \(v_t\) układem:
+
+$$
+dS_t = \mu S_t\,dt+\sqrt{v_t}S_t\,dW_t^{(1)}.
+$$
+
+$$
+dv_t = \kappa(\theta-v_t)\,dt+\xi\sqrt{v_t}\,dW_t^{(2)}.
+$$
+
+$$
+dW_t^{(1)}dW_t^{(2)}=\rho\,dt.
+$$
+
+Parametr \(\kappa\) określa szybkość powrotu wariancji do poziomu długookresowego \(\theta\), \(\xi\) jest zmiennością wariancji, a \(\rho\) korelacją pomiędzy szokami ceny i wariancji. W wycenie przy mierze neutralnej względem ryzyka dryf ceny zastępuje stopa wolna od ryzyka \(r\).
+
+Dla europejskiej opcji call warunek końcowy (w chwili wygaśnięcia) ma postać:
+
+\[
+V(S,v,T)=\max(S-K,0),
+\]
+
+gdzie \(K\) oznacza cenę wykonania, a \(T\) termin zapadalności.
+
+## Równanie różniczkowe cząstkowe
+
+Po wprowadzeniu zmiennych \(x=\ln S\) oraz \(\tau=T-t\), równanie wyceny użyte w obliczeniach przyjmuje postać:
+
+\[
+\boxed{
+V_\tau=
+\frac12vV_{xx}+\rho\xi vV_{xv}
++\frac12\xi^2vV_{vv}
++\left(r-\frac v2\right)V_x
++\kappa(\theta-v)V_v-rV
+}
+\]
+
+Poszczególne składniki mają następujące znaczenie:
+
+- \(\frac12vV_{xx}\) — dyfuzja w kierunku logarytmu ceny instrumentu bazowego;
+- \(\rho\xi vV_{xv}\) — składnik mieszany, uwzględniający korelację szoków ceny i wariancji;
+- \(\frac12\xi^2vV_{vv}\) — dyfuzja w kierunku wariancji;
+- \((r-\frac12v)V_x\) — adwekcja w kierunku \(x=\ln S\);
+- \(\kappa(\theta-v)V_v\) — powrót wariancji do poziomu długookresowego;
+- \(-rV\) — dyskontowanie wartości opcji.
+
+## Rozdzielenie operatora i metoda numeryczna
+
+Część adwekcyjną zapisano w postaci konserwatywnego transportu. Po przeniesieniu do strumienia transportowego używane prędkości Couranta odpowiadają wektorowi:
+
+\[
+\mathbf{C}=
+\left(
+\left(\frac v2-r\right)\frac{\Delta\tau}{\Delta x},
+\quad
+\kappa(v-\theta)\frac{\Delta\tau}{\Delta v}
+\right).
+\]
+
+Wynika to z tego, że w równaniu dla \(V\) prędkości adwekcyjne wynoszą \(r-v/2\) oraz \(\kappa(\theta-v)\), natomiast solver transportowy otrzymuje ich przeciwne znaki zgodnie z konwencją zastosowaną w notebooku. Przepisanie członu \(\kappa(\theta-v)V_v\) do postaci konserwatywnej wprowadza dodatkowy człon reakcyjny. Łącznie z dyskontowaniem daje to mnożnik:
+
+\[
+V\leftarrow V\exp\left((\kappa-r)\frac{\Delta\tau}{2}\right)
+\]
+
+przed i po kroku adwekcyjnym.
+
+Dyfuzję aproksymowano centralnie:
+
+\[
+D(V)=\frac12vD_{xx}V+\rho\xi vD_{xv}V+
+\frac12\xi^2vD_{vv}V,
+\]
+
+gdzie na siatce o krokach \(\Delta x,\Delta v\):
+
+\[
+D_{xx}V_{i,j}\approx
+\frac{V_{i+1,j}-2V_{i,j}+V_{i-1,j}}{\Delta x^2},
+\]
+
+\[
+D_{vv}V_{i,j}\approx
+\frac{V_{i,j+1}-2V_{i,j}+V_{i,j-1}}{\Delta v^2},
+\]
+
+\[
+D_{xv}V_{i,j}\approx
+\frac{V_{i+1,j+1}-V_{i+1,j-1}-V_{i-1,j+1}+V_{i-1,j-1}}
+{4\Delta x\Delta v}.
+\]
+
+Zastosowano rozdzielenie operatora typu Stranga: pół kroku dyfuzji, pół kroku reakcji, pełny krok MPDATA, ponownie pół kroku reakcji i pół kroku dyfuzji. Krok dyfuzyjny jest dodatkowo dzielony na podkroki, aby nie przekroczyć oszacowanego ograniczenia stabilności.
+
+# Parametry eksperymentu
+
+W obliczeniu bazowym wykorzystano następujące wartości:
+
+| Parametr | Wartość | Znaczenie |
+|---|---:|---|
+| \(K\) | 100 | cena wykonania |
+| \(T\) | 1 rok | czas do wygaśnięcia |
+| \(r\) | 0,05 | stopa wolna od ryzyka |
+| \(\kappa\) | 2,0 | szybkość powrotu wariancji |
+| \(\theta\) | 0,04 | długookresowa wariancja |
+| \(\xi\) | 0,3 | zmienność wariancji |
+| \(\rho\) | -0,7 | korelacja szoków |
+| \(N_x\) | 100 | liczba komórek w kierunku \(\ln S\) |
+| \(N_v\) | 60 | liczba komórek w kierunku wariancji |
+| \(N_t\) | 1200 | liczba kroków czasowych |
+| \(S_{\min},S_{\max}\) | 20, 300 | zakres ceny instrumentu |
+| \(v_{\max}\) | 0,5 | maksymalna wariancja na siatce |
+
+Współrzędne siatki są środkami komórek. Zatem \(\Delta x\) i \(\Delta v\) wynikają z równomiernego podziału przedziałów \([\ln S_{\min},\ln S_{\max}]\) i \([0,v_{\max}]\), a krok czasu wynosi \(\Delta\tau=T/N_t\).
+
+# Implementacja i wyniki
+
+Poniższe komórki odtwarzają obliczenia z notebooka. Wykresy są generowane podczas renderowania dokumentu, dzięki czemu są również dołączane do artefaktu CI.
+
+```{python}
+import os
+os.environ["NUMBA_THREADING_LAYER"] = "workqueue"
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+from PyMPDATA import ScalarField, VectorField, Solver, Stepper, Options
+from PyMPDATA.boundary_conditions import Extrapolated
+
+plt.rcParams.update({
+    "figure.figsize": (9, 5.5),
+    "axes.grid": True,
+    "grid.alpha": 0.25,
+    "font.size": 10,
+})
+```
+
+## Solver Hestona
+
+```{python}
+class HestonIntegrator:
+    def __init__(self, *, K=100., T=1., r=.05, kappa=2., theta=.04,
+                 xi=.3, rho=-.7, nx=100, nv=60, nt=1200,
+                 S_min=20., S_max=300., v_max=.5, options=None):
+        self.K, self.T, self.r = K, T, r
+        self.kappa, self.theta, self.xi, self.rho = kappa, theta, xi, rho
+        self.nx, self.nv, self.nt = nx, nv, nt
+        self.dt = T / nt
+
+        self.x_edges = np.linspace(np.log(S_min), np.log(S_max), nx + 1)
+        self.v_edges = np.linspace(0., v_max, nv + 1)
+        self.dx = self.x_edges[1] - self.x_edges[0]
+        self.dv = self.v_edges[1] - self.v_edges[0]
+        self.x = (self.x_edges[:-1] + self.x_edges[1:]) / 2
+        self.v = (self.v_edges[:-1] + self.v_edges[1:]) / 2
+        self.S = np.exp(self.x)
+
+        initial = np.maximum(self.S[:, None] - K, 0.)
+        initial = np.broadcast_to(initial, (nx, nv)).copy()
+
+        options = options or Options(n_iters=2, nonoscillatory=True,
+                                    infinite_gauge=True)
+        bc = (Extrapolated(), Extrapolated())
+        halo = options.n_halo
+
+        courant_x = np.broadcast_to(
+            (self.v[None, :] / 2 - r) * self.dt / self.dx,
+            (nx + 1, nv)
+        ).copy()
+        courant_v = np.broadcast_to(
+            kappa * (self.v_edges[None, :] - theta) * self.dt / self.dv,
+            (nx, nv + 1)
+        ).copy()
+
+        if np.max(np.abs(courant_x)) > 1 or np.max(np.abs(courant_v)) > 1:
+            raise ValueError("Warunek CFL MPDATA nie jest spełniony.")
+
+        stepper = Stepper(options=options, grid=(nx, nv))
+        advectee = ScalarField(initial, halo, bc)
+        advector = VectorField((courant_x, courant_v), halo, bc)
+        self.solver = Solver(stepper, advectee, advector)
+
+        v_eff = min(v_max, max(theta, 0.15))
+        a, c = .5 * v_eff, .5 * xi**2 * v_eff
+        d = abs(rho * xi * v_eff)
+        bound = 4*a/self.dx**2 + 4*c/self.dv**2 + d/(self.dx*self.dv)
+        self.dt_diff = np.inf if bound == 0 else 1.8 / bound
+        self._boundaries(0.)
+
+    def get(self):
+        return self.solver.advectee.get()
+
+    def _boundaries(self, tau):
+        q = self.get()
+        q[:, 0] = q[:, 1]
+        q[:, -1] = q[:, -2]
+        q[0, :] = 0.
+        q[-1, :] = self.S[-1] - self.K * np.exp(-self.r * tau)
+
+    def _diffusion(self, q):
+        p = np.pad(q, ((1, 1), (1, 1)), mode="edge")
+        dxx = (p[2:, 1:-1] - 2*q + p[:-2, 1:-1]) / self.dx**2
+        dvv = (p[1:-1, 2:] - 2*q + p[1:-1, :-2]) / self.dv**2
+        dxv = (p[2:, 2:] - p[2:, :-2] - p[:-2, 2:] + p[:-2, :-2]) / (4*self.dx*self.dv)
+        v = self.v[None, :]
+        return .5*v*dxx + self.rho*self.xi*v*dxv + .5*self.xi**2*v*dvv
+
+    def _diffusion_step(self, interval, tau):
+        n = max(1, int(np.ceil(interval / self.dt_diff)))
+        h = interval / n
+        for _ in range(n):
+            q = self.get()
+            q += h * self._diffusion(q)
+            self._boundaries(tau)
+
+    def __call__(self, *, outfreq=200):
+        output, times = [self.get().copy()], [0.]
+        for it in range(1, self.nt + 1):
+            tau = it * self.dt
+            self._diffusion_step(self.dt/2, tau)
+            self.get()[:] *= np.exp((self.kappa - self.r) * self.dt/2)
+            self._boundaries(tau)
+            self.solver.advance(n_steps=1)
+            self._boundaries(tau)
+            self.get()[:] *= np.exp((self.kappa - self.r) * self.dt/2)
+            self._boundaries(tau)
+            self._diffusion_step(self.dt/2, tau)
+            self._boundaries(tau)
+            if it % outfreq == 0 or it == self.nt:
+                output.append(self.get().copy())
+                times.append(tau)
+        result = np.asarray(output[-1])
+        if not np.isfinite(result).all():
+            raise FloatingPointError(
+                "Solver zwrócił NaN/Inf. Nie można raportować wiarygodnych metryk."
+            )
+        return np.asarray(times), output
+
+def solve_heston(**kwargs):
+    integrator = HestonIntegrator(**kwargs)
+    times, output = integrator(outfreq=max(1, integrator.nt // 4))
+    return integrator, times, output
+
+def bs_analytic(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + .5*sigma**2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+    return S*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
+
+params = dict(K=100., T=1., r=.05, kappa=2., theta=.04,
+              xi=.3, rho=-.7, nx=100, nv=60, nt=1200,
+              S_min=20., S_max=300., v_max=.5)
+integrator, times, output = solve_heston(**params)
+V = output[-1]
+```
+
+## Wykres 1. Mapa ceny opcji
+
+Kolor przedstawia cenę opcji \(V(S,v)\), a białe linie są poziomicami wybranych wartości. Wzrost \(S\) zwiększa wypłatę z opcji call, natomiast poziom wariancji wpływa na rozkład przyszłej ceny i wartość prawa do zakupu.
+
+```{python}
+fig, ax = plt.subplots(figsize=(9, 5.5))
+levels = np.linspace(0, 100, 21)
+im = ax.contourf(integrator.S, integrator.v, V.T, levels=levels,
+                 cmap="plasma", extend="max")
+cs = ax.contour(integrator.S, integrator.v, V.T,
+                levels=[5, 10, 20, 50, 100], colors="white", linewidths=.8)
+ax.clabel(cs, inline=True, fontsize=8, fmt="%.0f")
+fig.colorbar(im, ax=ax, label="Cena opcji V")
+ax.set(xlim=(50, 200), xlabel="Cena instrumentu bazowego S",
+       ylabel="Wariancja v", title="Cena opcji w modelu Hestona — mapa 2D")
+fig.tight_layout()
+plt.show()
+```
+
+## Wartość wewnętrzna i czasowa
+
+Wartość wewnętrzna opcji call to:
+
+\[
+V_{\mathrm{int}}(S)=\max(S-K,0).
+\]
+
+Wartość czasową zdefiniowano jako różnicę pomiędzy ceną modelową i wartością wewnętrzną:
+
+\[
+V_{\mathrm{time}}(S,v)=V(S,v)-\max(S-K,0).
+\]
+
+```{python}
+intrinsic = np.maximum(integrator.S[:, None] - integrator.K, 0.)
+time_value = V - intrinsic
+fig, ax = plt.subplots(figsize=(9, 5.5))
+im = ax.pcolormesh(integrator.S, integrator.v, time_value.T,
+                   shading="auto", cmap="inferno")
+fig.colorbar(im, ax=ax, label="Wartość czasowa opcji")
+ax.set(xlim=(50, 180), xlabel="Cena instrumentu bazowego S",
+       ylabel="Wariancja v", title="Wartość czasowa opcji")
+fig.tight_layout()
+plt.show()
+```
+
+## Przekroje dla wybranych wariancji
+
+Dla trzech poziomów wariancji wybierane są najbliższe dostępne środki komórek siatki. Wykres pokazuje zależność ceny opcji od ceny instrumentu bazowego przy ustalonym poziomie wariancji.
+
+```{python}
+fig, ax = plt.subplots(figsize=(8, 5))
+for target_v in [0.02, 0.15, 0.40]:
+    jv = np.argmin(np.abs(integrator.v - target_v))
+    ax.plot(integrator.S, V[:, jv], label=f"v = {integrator.v[jv]:.3f}")
+ax.set(xlim=(80, 120), ylim=(0, 30), xlabel="Cena instrumentu bazowego S",
+       ylabel="Cena opcji V", title="Cena opcji dla różnych wariancji")
+ax.legend()
+fig.tight_layout()
+plt.show()
+```
+
+## Powierzchnia 3D ceny opcji
+
+```{python}
+mask_S = (integrator.S >= 50) & (integrator.S <= 180)
+S_grid = integrator.S[mask_S]
+S_mesh, v_mesh = np.meshgrid(S_grid, integrator.v)
+V_mesh = V[mask_S, :].T
+
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection="3d")
+surf = ax.plot_surface(S_mesh, v_mesh, V_mesh, cmap="viridis",
+                       edgecolor="none", alpha=.9)
+ax.set(xlabel="Cena instrumentu bazowego S", ylabel="Wariancja v",
+       zlabel="Cena opcji V", title="Powierzchnia ceny opcji — model Hestona")
+fig.colorbar(surf, ax=ax, shrink=.6, label="Cena opcji V")
+ax.view_init(elev=25, azim=-120)
+plt.tight_layout()
+plt.show()
+```
+
+## Powierzchnia 3D wartości czasowej
+
+```{python}
+intrinsic_mesh = np.maximum(S_mesh - integrator.K, 0.)
+time_mesh = V_mesh - intrinsic_mesh
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection="3d")
+surf = ax.plot_surface(S_mesh, v_mesh, time_mesh, cmap="inferno",
+                       edgecolor="none", alpha=.9)
+ax.set(xlabel="Cena instrumentu bazowego S", ylabel="Wariancja v",
+       zlabel="Wartość czasowa", title="Powierzchnia wartości czasowej")
+fig.colorbar(surf, ax=ax, shrink=.6, label="Wartość czasowa")
+ax.view_init(elev=25, azim=-120)
+plt.tight_layout()
+plt.show()
+```
+
+# Weryfikacja: granica Blacka–Scholesa
+
+Dla \(\xi=0\) wariancja nie ma losowej składowej dyfuzyjnej. Jeżeli ponadto rozpatruje się poziom \(v=\theta\), to dryf wariancji \(\kappa(\theta-v)\) jest równy zeru. Model powinien wówczas odpowiadać modelowi Blacka–Scholesa ze stałą zmiennością:
+
+\[
+\sigma=\sqrt{\theta}.
+\]
+
+Analityczna cena europejskiej opcji call w modelu Blacka–Scholesa wynosi:
+
+\[
+C_{\mathrm{BS}}=S N(d_1)-Ke^{-rT}N(d_2),
+\]
+
+\[
+d_1=\frac{\ln(S/K)+(r+\frac12\sigma^2)T}{\sigma\sqrt T},
+\qquad
+d_2=d_1-\sigma\sqrt T,
+\]
+
+gdzie \(N(\cdot)\) jest dystrybuantą standardowego rozkładu normalnego.
+
+Ważne ograniczenie siatki: wartości \(v\) są środkami komórek, więc \(\theta\) nie musi być jednym z węzłów. Dlatego porównanie jest wykonywane przez interpolację liniową po osi wariancji, a nie przez wybór arbitralnie najbliższej komórki. Jeśli solver zwróci wartości niefinitywne, obliczenie metryk zostaje przerwane — nie zastępujemy błędnych wartości zerami ani nie ukrywamy ich.
+
+```{python}
+limit_params = params.copy()
+limit_params.update(xi=0., rho=0.)
+limit_solver, _, limit_output = solve_heston(**limit_params)
+V_limit = limit_output[-1]
+
+sigma_bs = np.sqrt(limit_params["theta"])
+bs = bs_analytic(limit_solver.S, limit_params["K"], limit_params["T"],
+                 limit_params["r"], sigma_bs)
+
+# Interpolacja w kierunku wariancji dla każdego S.
+V_theta = np.array([
+    np.interp(limit_params["theta"], limit_solver.v, V_limit[i, :])
+    for i in range(len(limit_solver.S))
+])
+
+mask = (limit_solver.S >= 50) & (limit_solver.S <= 180)
+S_rep = limit_solver.S[mask]
+heston_rep, bs_rep = V_theta[mask], bs[mask]
+abs_diff = np.abs(heston_rep - bs_rep)
+max_err = float(np.max(abs_diff))
+rmse = float(np.sqrt(np.mean(abs_diff**2)))
+
+if not (np.isfinite(max_err) and np.isfinite(rmse)):
+    raise FloatingPointError("Metryki porównania Heston–Black–Scholes są niefinitywne.")
+
+print(f"Maksymalny błąd bezwzględny: {max_err:.6f}")
+print(f"RMSE: {rmse:.6f}")
+```
+
+```{python}
+fig, ax = plt.subplots(figsize=(8.5, 5))
+ax.plot(limit_solver.S, V_theta, label="Heston: ξ = 0, v = θ", linewidth=2)
+ax.plot(limit_solver.S, bs, "--", label="Black–Scholes — wzór analityczny")
+ax.set(xlim=(50, 180), xlabel="Cena instrumentu bazowego S",
+       ylabel="Cena opcji V", title="Granica modelu Hestona i Black–Scholesa")
+ax.legend()
+fig.tight_layout()
+plt.show()
+
+fig, ax = plt.subplots(figsize=(8.5, 4))
+ax.plot(S_rep, abs_diff)
+ax.set(xlabel="Cena instrumentu bazowego S",
+       ylabel="Błąd bezwzględny",
+       title="Błąd Heston względem Black–Scholesa")
+fig.tight_layout()
+plt.show()
+```
+
+# Omówienie i wnioski
+
+1. Model Hestona rozszerza model Blacka–Scholesa o stochastyczną wariancję. Wycena zależy zatem od dwóch zmiennych stanu: ceny instrumentu \(S\) i wariancji \(v\).
+2. Parametr \(\rho\) wpływa na składnik mieszany \(V_{xv}\). Ujemna korelacja oznacza, że spadkom ceny instrumentu mogą towarzyszyć wzrosty wariancji.
+3. Parametry \(\kappa\) i \(\theta\) sterują powrotem wariancji do poziomu długookresowego. Parametr \(\xi\) określa siłę losowych zmian wariancji.
+4. Wartość czasowa jest różnicą między ceną opcji a jej wartością wewnętrzną. Nie należy jej utożsamiać z samą wariancją — jest ona wynikiem całego modelu i pozostałego czasu do wygaśnięcia.
+5. Test \(\xi=0\) stanowi kontrolę implementacji: dla \(v=\theta\) rozwiązanie powinno zbiegać do ceny Blacka–Scholesa z \(\sigma=\sqrt{\theta}\). Wielkość błędu zależy również od rozdzielczości siatki i błędów schematu numerycznego.
+
+**Uwaga dotycząca interpretacji wyników:** wartości metryk porównania są obliczane ponownie podczas renderowania dokumentu. Nie są wpisane na stałe, ponieważ muszą odpowiadać dokładnie tej wersji kodu, zależności i parametrów, która wygenerowała raport. Oryginalny notebook zwracał `NaN` dla tych metryk; poprawiona procedura interpoluje po osi wariancji i jawnie kontroluje skończoność wyniku. Jeżeli kontrola wykryje `NaN` lub `Inf`, renderowanie zakończy się błędem zamiast publikować niepoprawne statystyki.
+
+# Bibliografia
+
+- Heston, S. L. (1993), *A Closed-Form Solution for Options with Stochastic Volatility with Applications to Bond and Currency Options*, The Review of Financial Studies, 6(2), 327–343.
+- Smolarkiewicz, P. K. (1984), *A fully multidimensional positive definite advection transport algorithm with small implicit diffusion*, Journal of Computational Physics, 54(2), 325–362.
+- Dokumentacja biblioteki PyMPDATA: https://github.com/atmos-cloud-sim-uj/PyMPDATA
