@@ -4,13 +4,11 @@ on:
   push:
     branches: [main, master]
     paths:
-      - "**.qmd"
-      - "**.ipynb"
+      - "Heston_sprawozdanie.ipynb"
       - ".github/workflows/heston-report.yml"
   pull_request:
     paths:
-      - "**.qmd"
-      - "**.ipynb"
+      - "Heston_sprawozdanie.ipynb"
       - ".github/workflows/heston-report.yml"
   workflow_dispatch:
 
@@ -75,12 +73,12 @@ jobs:
         env:
           NUMBA_THREADING_LAYER: workqueue
           MPLBACKEND: Agg
-        run: quarto render sprawozdanie.qmd --to pdf
+        run: quarto render Heston_sprawozdanie.ipynb --to pdf
 
       - name: Upload PDF artifact
         uses: actions/upload-artifact@v4
         with:
           name: heston-report-pdf
-          path: sprawozdanie.pdf
+          path: Heston_sprawozdanie.pdf
           if-no-files-found: error
           retention-days: 30
