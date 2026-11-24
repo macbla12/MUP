@@ -184,16 +184,20 @@ V = output[-1]
 # Wyniki
 
 ```{python}
-#| fig-cap: "Od lewej: mapa ceny opcji $V(S,v)$ z poziomicami; mapa wartości czasowej $V-\\max(S-K,0)$; przekroje ceny opcji dla trzech poziomów wariancji $v$."
+#| fig-cap: "Od lewej: mapa ceny opcji $V(S,v)$ z poziomicami; powierzchnia wartości czasowej $V-\\max(S-K,0)$; przekroje ceny opcji dla trzech poziomów wariancji $v$."
 #| fig-width: 10
-#| fig-height: 2.8
+#| fig-height: 3
 #| out-width: "100%"
 intrinsic = np.maximum(integrator.S[:, None] - integrator.K, 0.)
-time_value = V - intrinsic
 
-fig, axs = plt.subplots(1, 3, figsize=(10, 2.8))
+mask_S = (integrator.S >= 50) & (integrator.S <= 180)
+S_mesh, v_mesh = np.meshgrid(integrator.S[mask_S], integrator.v)
+V_mesh = V[mask_S, :].T
+time_mesh = V_mesh - np.maximum(S_mesh - integrator.K, 0.)
 
-ax = axs[0]
+fig = plt.figure(figsize=(10, 3))
+
+ax = fig.add_subplot(1, 3, 1)
 im = ax.contourf(integrator.S, integrator.v, V.T,
                  levels=np.linspace(0, 100, 21), cmap="plasma", extend="max")
 cs = ax.contour(integrator.S, integrator.v, V.T,
@@ -202,13 +206,14 @@ ax.clabel(cs, inline=True, fontsize=6, fmt="%.0f")
 fig.colorbar(im, ax=ax, label="V")
 ax.set(xlim=(50, 200), xlabel="S", ylabel="v", title="Cena opcji")
 
-ax = axs[1]
-im = ax.pcolormesh(integrator.S, integrator.v, time_value.T,
-                   shading="auto", cmap="inferno")
-fig.colorbar(im, ax=ax, label="wartość czasowa")
-ax.set(xlim=(50, 180), xlabel="S", ylabel="v", title="Wartość czasowa")
+ax = fig.add_subplot(1, 3, 2, projection="3d")
+surf = ax.plot_surface(S_mesh, v_mesh, time_mesh, cmap="inferno",
+                       edgecolor="none", alpha=.9)
+ax.set(xlabel="S", ylabel="v", zlabel="wartość czasowa",
+       title="Wartość czasowa")
+ax.view_init(elev=25, azim=-120)
 
-ax = axs[2]
+ax = fig.add_subplot(1, 3, 3)
 for target_v in [0.02, 0.15, 0.40]:
     jv = np.argmin(np.abs(integrator.v - target_v))
     ax.plot(integrator.S, V[:, jv], label=f"v = {integrator.v[jv]:.3f}")
@@ -220,28 +225,7 @@ fig.tight_layout()
 plt.show()
 ```
 
-```{python}
-#| fig-cap: "Powierzchnia wartości czasowej opcji w zależności od ceny instrumentu $S$ i wariancji $v$. Wartość czasowa jest największa w pobliżu ceny wykonania ($S\\approx K$) i rośnie wraz z wariancją."
-#| fig-width: 5.5
-#| fig-height: 3.4
-#| out-width: "62%"
-#| fig-align: center
-mask_S = (integrator.S >= 50) & (integrator.S <= 180)
-S_grid = integrator.S[mask_S]
-S_mesh, v_mesh = np.meshgrid(S_grid, integrator.v)
-V_mesh = V[mask_S, :].T
-time_mesh = V_mesh - np.maximum(S_mesh - integrator.K, 0.)
-
-fig = plt.figure(figsize=(5.5, 3.4))
-ax = fig.add_subplot(111, projection="3d")
-surf = ax.plot_surface(S_mesh, v_mesh, time_mesh, cmap="inferno",
-                       edgecolor="none", alpha=.9)
-ax.set(xlabel="S", ylabel="v", zlabel="wartość czasowa")
-fig.colorbar(surf, ax=ax, shrink=.6, pad=.1)
-ax.view_init(elev=25, azim=-120)
-plt.tight_layout()
-plt.show()
-```
+Cena opcji rośnie z $S$ i z $v$: im większa wariancja, tym większa szansa na silny ruch ceny w górę, a ponieważ strata jest ograniczona do premii, opcja jest wtedy droższa. Wartość czasowa jest największa w pobliżu ceny wykonania ($S\approx K$), gdzie niepewność co do wygaśnięcia „w pieniądzu" jest największa, a dla $S\ll K$ i $S\gg K$ maleje do zera. Przekroje pokazują ten sam efekt: krzywe dla większego $v$ leżą wyżej, a różnice między nimi są największe wokół $K$.
 
 # Weryfikacja: granica Blacka–Scholesa
 
@@ -292,6 +276,13 @@ ax2.set(xlabel="S", ylabel="błąd bezwzgl.")
 fig.tight_layout()
 plt.show()
 ```
+
+Błąd jest mały (maksymalnie ok. 0,13 przy cenie opcji rzędu 85, czyli poniżej 0,2%), ale ma wyraźny kształt, który nie wygląda na szum. Poniższe wyjaśnienie jest najbardziej prawdopodobne, ale nie sprawdzałem go osobno (np. rysując błąd ze znakiem lub zagęszczając siatkę):
+
+- **Górka w okolicy $S\approx 90$–$100$** — wypłata $\max(S-K,0)$ ma załamanie w $K$, którego siatka nie rozwiązuje dokładnie, a schemat (MPDATA z dodatkowymi poprawkami i dyfuzją numeryczną) lekko je wygładza. Błędy dyskretyzacji koncentrują się więc tam, gdzie rozwiązanie jest najmniej gładkie.
+- **Spadek do zera w okolicy $S\approx 112$** — to prawdopodobnie miejsce, w którym błąd *ze znakiem* zmienia znak (wykres pokazuje wartość bezwzględną, stąd „szpic").
+- **Wzrost błędu dla dużych $S$** — siatka jest równomierna w $\ln S$, więc krok w samej cenie $\Delta S\approx S\,\Delta x$ rośnie wraz z $S$, a wartość opcji rośnie niemal liniowo. Błąd bezwzględny rośnie więc mniej więcej proporcjonalnie do $S$, przy niemal stałym błędzie względnym.
+- Dodatkowo drobny wkład daje interpolacja liniowa po $v$ (bo $\theta$ nie jest węzłem) oraz warunek brzegowy na $S_{\max}$.
 
 # Wnioski
 
