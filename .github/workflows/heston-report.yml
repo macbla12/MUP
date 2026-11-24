@@ -73,7 +73,7 @@ jobs:
         env:
           NUMBA_THREADING_LAYER: workqueue
           MPLBACKEND: Agg
-        run: quarto render Heston_sprawozdanie.ipynb --to pdf
+        run: quarto render Heston.ipynb --to pdf
 
       - name: Upload PDF artifact
         uses: actions/upload-artifact@v4
