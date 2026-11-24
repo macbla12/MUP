@@ -74,7 +74,7 @@ jobs:
           NUMBA_THREADING_LAYER: workqueue
           MPLBACKEND: Agg
         run: |
-          NB=$(find . -iname "Heston_sprawozdanie.ipynb" -not -path "./.git/*" | head -n 1)
+          NB=$(find . -iname "Heston.ipynb" -not -path "./.git/*" | head -n 1)
           echo "Notebook: $NB"
           test -n "$NB"
           quarto render "$NB" --to pdf
