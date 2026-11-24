@@ -261,7 +261,7 @@ print(f"RMSE: {rmse:.6f}")
 ```
 
 ```{python}
-#| fig-cap: "Góra: cena opcji z solvera i wzór Blacka–Scholesa. Dół: błąd bezwzględny."
+#| fig-cap: "Góra: cena opcji z solvera (ξ = 0, v = θ) i wzór Blacka–Scholesa. Dół: błąd bezwzględny."
 #| fig-width: 5.5
 #| fig-height: 3.4
 #| out-width: "62%"
