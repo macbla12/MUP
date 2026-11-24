@@ -73,12 +73,19 @@ jobs:
         env:
           NUMBA_THREADING_LAYER: workqueue
           MPLBACKEND: Agg
-        run: quarto render Heston.ipynb --to pdf
+        run: |
+          NB=$(find . -iname "Heston_sprawozdanie.ipynb" -not -path "./.git/*" | head -n 1)
+          echo "Notebook: $NB"
+          test -n "$NB"
+          quarto render "$NB" --to pdf
+
+      - name: List generated PDFs
+        run: find . -name "*.pdf" -not -path "./.git/*"
 
       - name: Upload PDF artifact
         uses: actions/upload-artifact@v4
         with:
           name: heston-report-pdf
-          path: Heston_sprawozdanie.pdf
+          path: "**/*.pdf"
           if-no-files-found: error
           retention-days: 30
