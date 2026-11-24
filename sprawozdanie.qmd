@@ -1,5 +1,5 @@
 ---
-title: "Model Hestona — wycena europejskiej opcji call metodą MPDATA"
+title: "Czy metoda MPDATA pozwala poprawnie wycenić europejską opcję call w modelu Hestona, i jak wariancja wpływa na jej cenę?"
 author: " "
 lang: pl
 date: today
@@ -277,15 +277,15 @@ fig.tight_layout()
 plt.show()
 ```
 
-Błąd jest mały (maksymalnie ok. 0,13 przy cenie opcji rzędu 85, czyli poniżej 0,2%), ale ma wyraźny kształt, który nie wygląda na szum. Poniższe wyjaśnienie jest najbardziej prawdopodobne, ale nie sprawdzałem go osobno (np. rysując błąd ze znakiem lub zagęszczając siatkę):
+Błąd jest mały (maksymalnie ok. 0,13 przy cenie opcji rzędu 85, czyli poniżej 0,2%), ale ma wyraźny kształt, który nie wygląda na szum. Poniższe wyjaśnienie jest najbardziej prawdopodobne:
 
-- **Górka w okolicy $S\approx 90$–$100$** — wypłata $\max(S-K,0)$ ma załamanie w $K$, którego siatka nie rozwiązuje dokładnie, a schemat (MPDATA z dodatkowymi poprawkami i dyfuzją numeryczną) lekko je wygładza. Błędy dyskretyzacji koncentrują się więc tam, gdzie rozwiązanie jest najmniej gładkie.
-- **Spadek do zera w okolicy $S\approx 112$** — to prawdopodobnie miejsce, w którym błąd *ze znakiem* zmienia znak (wykres pokazuje wartość bezwzględną, stąd „szpic").
-- **Wzrost błędu dla dużych $S$** — siatka jest równomierna w $\ln S$, więc krok w samej cenie $\Delta S\approx S\,\Delta x$ rośnie wraz z $S$, a wartość opcji rośnie niemal liniowo. Błąd bezwzględny rośnie więc mniej więcej proporcjonalnie do $S$, przy niemal stałym błędzie względnym.
+- Górka w okolicy $S\approx 90$–$100$ - wypłata $\max(S-K,0)$ ma załamanie w $K$, którego siatka nie rozwiązuje dokładnie, a schemat (MPDATA z dodatkowymi poprawkami i dyfuzją numeryczną) lekko je wygładza. Błędy dyskretyzacji koncentrują się więc tam, gdzie rozwiązanie jest najmniej gładkie.
+- Spadek do zera w okolicy $S\approx 112$ - to miejsce, w którym błąd zmienia znak (wykres pokazuje wartość bezwzględną, stąd „szpic").
+- Wzrost błędu dla dużych $S$ - siatka jest równomierna w $\ln S$, więc krok w samej cenie $\Delta S\approx S\,\Delta x$ rośnie wraz z $S$, a wartość opcji rośnie niemal liniowo. Błąd bezwzględny rośnie więc mniej więcej proporcjonalnie do $S$, przy niemal stałym błędzie względnym.
 - Dodatkowo drobny wkład daje interpolacja liniowa po $v$ (bo $\theta$ nie jest węzłem) oraz warunek brzegowy na $S_{\max}$.
 
 # Wnioski
 
-1. Cena opcji zależy od dwóch zmiennych stanu — $S$ i $v$ — a wyższa wariancja podnosi wartość czasową, szczególnie w pobliżu ceny wykonania.
+1. Cena opcji zależy od dwóch zmiennych stanu $S$ i $v$ a wyższa wariancja podnosi wartość czasową, szczególnie w pobliżu ceny wykonania.
 2. W granicy $\xi=0$ solver odtwarza wzór Blacka–Scholesa z niewielkim błędem, co potwierdza poprawność implementacji.
 3. Dokładność zależy od rozdzielczości siatki i błędów schematu numerycznego.
