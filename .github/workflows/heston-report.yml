@@ -158,4 +158,3 @@ jobs:
           name: heston-report-pdf
           path: Heston.pdf
           if-no-files-found: error
-          retention-days: 30
