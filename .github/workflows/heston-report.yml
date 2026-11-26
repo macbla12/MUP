@@ -66,6 +66,10 @@ jobs:
             texlive-fonts-recommended \
             texlive-lang-polish \
             latexmk
+      - name: Install SVG dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
 
       # Move Quarto front matter to the first Markdown cell and remove
       # the Colab badge and notebook-side pip command.
@@ -166,7 +170,6 @@ jobs:
       - name: Render PDF
         env:
           NUMBA_THREADING_LAYER: workqueue
-          MPLBACKEND: Agg
         run: quarto render Heston.ipynb --to pdf
 
       - name: Upload PDF artifact
