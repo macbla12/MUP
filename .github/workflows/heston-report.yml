@@ -86,6 +86,10 @@ jobs:
             pdf:
               documentclass: article
               fontsize: 10pt
+              fig-format: pdf
+              fig-dpi: 300
+              fig-width: 10
+              fig-height: 3
               geometry: margin=1.8cm
               pdf-engine: xelatex
               fig-align: center
