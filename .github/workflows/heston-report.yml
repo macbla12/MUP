@@ -86,7 +86,7 @@ jobs:
             pdf:
               documentclass: article
               fontsize: 10pt
-              fig-format: pdf
+              fig-format: svg
               fig-dpi: 300
               fig-width: 10
               fig-height: 3
