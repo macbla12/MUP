@@ -1,3 +1,35 @@
+name: Build Heston PDF
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "Heston.ipynb"
+      - ".github/workflows/heston-report.yml"
+  pull_request:
+    paths:
+      - "Heston.ipynb"
+      - ".github/workflows/heston-report.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-report:
+    name: Render Heston PDF
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
 
       - name: Install Python dependencies
         run: |
@@ -62,67 +94,3 @@
 
           cells = notebook.get("cells", [])
           if not cells:
-              raise SystemExit("Heston.ipynb nie zawiera żadnych komórek.")
-
-          first = cells[0]
-          if first.get("cell_type") == "markdown":
-              source = "".join(first.get("source", []))
-              source = "\n".join(
-                  line for line in source.splitlines()
-                  if "colab.research.google.com" not in line
-                  and "colab-badge" not in line
-              ).strip()
-              first["source"] = [front_matter + ("\n\n" + source if source else "")]
-          else:
-              cells.insert(0, {
-                  "cell_type": "markdown",
-                  "metadata": {},
-                  "source": [front_matter]
-              })
-
-          cells = [
-              cell for cell in cells
-              if not (
-                  cell.get("cell_type") == "raw"
-                  and "---" in "".join(cell.get("source", []))
-                  and "execute:" in "".join(cell.get("source", []))
-              )
-          ]
-
-          for cell in cells:
-              if cell.get("cell_type") == "code":
-                  source = "".join(cell.get("source", []))
-                  source = "\n".join(
-                      line for line in source.splitlines()
-                      if line.strip() not in (
-                          "!pip install pympdata",
-                          "%pip install pympdata"
-                      )
-                  )
-                  cell["source"] = source.splitlines(keepends=True)
-
-          notebook["cells"] = cells
-          path.write_text(
-              json.dumps(notebook, ensure_ascii=False, indent=1) + "\n",
-              encoding="utf-8"
-          )
-          PY
-
-      - name: Verify Python dependencies
-        run: |
-          python -c "import numpy, scipy, matplotlib, numba, PyMPDATA"
-          python -m ipykernel --version
-          quarto --version
-
-      - name: Render PDF
-        env:
-          NUMBA_THREADING_LAYER: workqueue
-          MPLBACKEND: Agg
-        run: quarto render Heston.ipynb --to pdf
-
-      - name: Upload PDF artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: heston-report-pdf
-          path: Heston.pdf
-          if-no-files-found: error
